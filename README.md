@@ -1,3 +1,3 @@
-# Understanding Github
+# Planet Simulation
 
 Just checking something
