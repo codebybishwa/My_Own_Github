@@ -1,32 +1,31 @@
-import pygame   # This is the library used for creating and managing the game window, handling events, and rendering graphics.
+import pygame
 import math
+
 pygame.init()
 
+# Window setup
 WIDTH, HEIGHT = 800, 800
-
-YELLOW = (255, 255, 0)
-BLUE = (100, 149, 237)  
-RED = (188, 39, 50)     
-WHITE = (255, 255, 255)
-GRAY = (169, 169, 169) 
-
-WINDOW = pygame.display.set_mode((800, 800)) # a window of size 800x800 pixels for displaying the simulation
+WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Planet Simulation")
 
+# Colors
+YELLOW = (255, 255, 0)
+BLUE = (100, 149, 237)
+RED = (188, 39, 50)
+WHITE = (255, 255, 255)
+GRAY = (169, 169, 169)
 
-class Planet():
-
+class Planet:
     # Constants
-    AU = 149.6e6 * 1000 # in metres
-    G = 6.67428e-11
-    SCALE = 220/AU # 1 AU = 100 pixels
-    TIMESTEP = 3600*24 # 1 day of planet at a time
+    AU = 149.6e6 * 1000  # in metres
+    G = 6.67428e-11  # Gravitational constant
+    SCALE = 220 / AU  # Scale for drawing: 1 AU = 100 pixels
+    TIMESTEP = 3600 * 24  # One day in seconds
 
     def __init__(self, x, y, radius, mass, color):
-        
-        self.x = x
+        self.x = x  # Position in meters
         self.y = y
-        self.radius = radius
+        self.radius = radius  # Radius for drawing
         self.mass = mass
         self.color = color
 
@@ -34,58 +33,97 @@ class Planet():
         self.distance_to_sun = 0
         self.orbit = []
 
-        self.x_vel = 0
+        self.x_vel = 0  # Velocity in meters per second
         self.y_vel = 0
 
     def draw(self, win):
-        x = self.x*self.SCALE + WIDTH/2;
-        y = self.y*self.SCALE + HEIGHT/2;
-        
-        pygame.draw.circle(win, self.color, (x, y), self.radius)
+        x = self.x * self.SCALE + WIDTH / 2
+        y = self.y * self.SCALE + HEIGHT / 2
+
+        # Draw the orbit path
+        if len(self.orbit) > 2:
+            updated_orbit = [(point[0] * self.SCALE + WIDTH / 2, point[1] * self.SCALE + HEIGHT / 2) for point in self.orbit]
+            pygame.draw.lines(win, self.color, False, updated_orbit, 2)
+
+        pygame.draw.circle(win, self.color, (int(x), int(y)), self.radius)
+
+    def attraction(self, other):
+        other_x, other_y = other.x, other.y
+        distance_x = other_x - self.x
+        distance_y = other_y - self.y
+        distance = math.sqrt(distance_x ** 2 + distance_y ** 2)
+
+        if other.sun:
+            self.distance_to_sun = distance
+
+        force = self.G * self.mass * other.mass / distance ** 2  # F = G * m1 * m2 / r^2
+        theta = math.atan2(distance_y, distance_x)
+        force_x = math.cos(theta) * force
+        force_y = math.sin(theta) * force
+
+        return force_x, force_y
+
+    def update_position(self, planets):
+        total_fx, total_fy = 0, 0
+        for planet in planets:
+            if self == planet:
+                continue
+
+            fx, fy = self.attraction(planet)
+            total_fx += fx
+            total_fy += fy
+
+        # Update velocity (acceleration = F / m)
+        self.x_vel += total_fx / self.mass * self.TIMESTEP
+        self.y_vel += total_fy / self.mass * self.TIMESTEP
+
+        # Update position based on velocity
+        self.x += self.x_vel * self.TIMESTEP
+        self.y += self.y_vel * self.TIMESTEP
+
+        # Save orbit history for drawing
+        self.orbit.append((self.x, self.y))
 
 
 def main():
-    
     run = True
-    clock =  pygame.time.Clock(); # The clock object allows you to manage the timing in your game loop by measuring 
-                                  # how much time has passed and controlling the speed at which the game updates.
-    
-    # Sun
+    clock = pygame.time.Clock()
+
+    # Create the Sun (massive object at the center)
     sun = Planet(0, 0, 30, 1.98892 * 10**30, YELLOW)
     sun.sun = True
 
-    # Earth
-    earth = Planet(-Planet.AU, 0, 16, 5.9742 * 10**24, BLUE) # Earthy is 1 AU away from the sun
-    earth.y_vel = 29.783 * 1000  
+    # Create planets with initial positions and velocities
+    earth = Planet(-Planet.AU, 0, 16, 5.9742 * 10**24, BLUE)
+    earth.y_vel = 29.783 * 1000  # Earth's orbital velocity in m/s
 
-    # Mars
     mars = Planet(-1.524 * Planet.AU, 0, 12, 6.39 * 10**23, RED)
-    mars.y_vel = 24.077 * 1000  
-    
-    # Venus
+    mars.y_vel = 24.077 * 1000  # Mars' orbital velocity in m/s
+
     venus = Planet(0.723 * Planet.AU, 0, 14, 4.8685 * 10**24, WHITE)
-    venus.y_vel = 35.02 * 1000  # Venus velocity in m/s (around 35.02 km/s)
+    venus.y_vel = -35.02 * 1000  # Venus' orbital velocity in m/s (clockwise)
 
-    # Mercury
-    mercury = Planet(-0.387 * Planet.AU, 0, 8, 3.30 * 10**23, GRAY)
-    mercury.y_vel = 47.87 * 1000  # Mercury velocity in m/s (around 47.87 km/s)
+    mercury = Planet(0.387 * Planet.AU, 0, 8, 3.30 * 10**23, GRAY)
+    mercury.y_vel = -47.87 * 1000  # Mercury's orbital velocity in m/s (clockwise)
 
-    
-    planets = [sun, earth, mars, venus, mercury]                            
+    planets = [sun, earth, mars, venus, mercury]
 
     while run:
-        clock.tick(60)   # no matter how fast the computer is, the game will only run up to 60 frames per second.
-        
-        for event in pygame.event.get():  # Gives a list of all the events (like keyboard presses, mouse movements, or window closing) that Pygame has detected.
+        clock.tick(60)  # Limit to 60 frames per second
+        WINDOW.fill((0, 0, 0))  # Clear the screen
+
+        for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
 
+        # Update and draw each planet
         for planet in planets:
-            planet.draw(WINDOW)    
+            planet.update_position(planets)
+            planet.draw(WINDOW)
 
-        pygame.display.update()        
+        pygame.display.update()
 
     pygame.quit()
 
 
-main()                
+main()
