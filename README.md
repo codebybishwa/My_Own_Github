@@ -12,3 +12,6 @@ This project is a simulation of the solar system with multiple planets orbiting 
 ## 🛠️ To Run:
 1. Install Pygame
 2. Download the .py file and run it. A pygame window will pop up to display the simulation
+
+   ![image](https://github.com/user-attachments/assets/0b97d455-145a-4b46-a052-00a918903d5a)
+
